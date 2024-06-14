@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "cofl.huskycord.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "DefaultDispenseItemBehaviorMixin",
+    "EntityMixin"
+  ],
+  "client": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

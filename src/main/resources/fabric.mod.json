@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "huskycord",
+  "version": "${version}",
+  "name": "huskycord",
+  "description": "",
+  "authors": [],
+  "contact": {
+    "repo": "https://github.com/cofl/huskycord"
+  },
+  "license": "ISC",
+  "icon": "assets/huskycord/icon.png",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "cofl.huskycord.HuskycordMod"
+    ],
+    "client": []
+  },
+  "mixins": [
+    "huskycord.mixins.json"
+  ],
+  "accessWidener" : "huskycord.accesswidener",
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
