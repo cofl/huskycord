@@ -4,8 +4,8 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.gamerule.v1.GameRuleFactory;
 import net.fabricmc.fabric.api.gamerule.v1.GameRuleRegistry;
-import net.fabricmc.fabric.api.item.v1.EnchantingContext;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.Rotations;
@@ -13,10 +13,12 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.BiomeTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
@@ -35,12 +37,17 @@ import net.minecraft.world.item.enchantment.*;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameRules.Category;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.EntityHitResult;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Objects;
+import java.util.Optional;
+
 import static cofl.huskycord.HuskycordMod.LOGGER;
+import static cofl.huskycord.HuskycordMod.MOD_NAME;
 
 public class Graves {
     public static final GameRules.Key<GameRules.IntegerValue> DEATH_EXPERIENCE_LOSS =
@@ -51,6 +58,36 @@ public class Graves {
         GameRuleRegistry.register("tellGravePosition", Category.PLAYER, GameRuleFactory.createBooleanRule(false));
     public static final GameRules.Key<GameRules.IntegerValue> TELL_GRAVE_DISTANCE =
         GameRuleRegistry.register("tellGraveDistance", Category.PLAYER, GameRuleFactory.createIntRule(4, 0, 16));
+    public static final GameRules.Key<GameRules.IntegerValue> GRAVE_DANGEROUS_CEILING_HEIGHT =
+        GameRuleRegistry.register("graveDangerousCeilingHeight", Category.PLAYER, GameRuleFactory.createIntRule(3, 0, 16));
+
+    // graves always sink through these
+    public static final TagKey<Block> GRAVE_SINK = TagKey.create(
+        Registries.BLOCK,
+        ResourceLocation.fromNamespaceAndPath(MOD_NAME, "grave_sink"));
+
+    // graves only sink through these if they're not sturdy
+    public static final TagKey<Block> GRAVE_SINK_IF_OPEN = TagKey.create(
+        Registries.BLOCK,
+        ResourceLocation.fromNamespaceAndPath(MOD_NAME, "grave_sink_if_open"));
+
+    // graves always float through these
+    public static final TagKey<Block> GRAVE_FLOAT = TagKey.create(
+        Registries.BLOCK,
+        ResourceLocation.fromNamespaceAndPath(MOD_NAME, "grave_float"));
+    // and if they float over these, try to peek through the ceiling
+    public static final TagKey<Block> GRAVE_DANGEROUS_FLOAT = TagKey.create(
+        Registries.BLOCK,
+        ResourceLocation.fromNamespaceAndPath(MOD_NAME, "grave_dangerous_float"));
+
+    // graves can be placed in these blocks
+    public static final TagKey<Block> GRAVE_PLACEABLE = TagKey.create(
+        Registries.BLOCK,
+        ResourceLocation.fromNamespaceAndPath(MOD_NAME, "grave_placeable"));
+    // and these support graves on their own
+    public static final TagKey<Block> GRAVE_SUPPORTS = TagKey.create(
+        Registries.BLOCK,
+        ResourceLocation.fromNamespaceAndPath(MOD_NAME, "grave_supports"));
 
     private static final String GRAVE_ENTITY_TAG = "huskycordGrave";
     public static void register(){
@@ -76,34 +113,132 @@ public class Graves {
         return Math.round(4.5f * levels * levels - 162.5f * levels + 2220f + partial);
     }
 
-    private static BlockState getFillerBlock(ResourceKey<Level> level){
-        if(level == Level.END)
-            return Blocks.END_STONE.defaultBlockState();
-        if(level == Level.NETHER)
-            return Blocks.NETHERRACK.defaultBlockState();
-        return Blocks.STONE.defaultBlockState();
-    }
-
-    private static boolean hasEnchantment(ItemStack stack, ResourceKey<Enchantment> enchantment){
+    private static boolean hasVanishingCurse(ItemStack stack){
         var component = stack.getComponents().get(DataComponents.ENCHANTMENTS);
         if(null == component || component.isEmpty())
             return false;
         for(var holder: component.keySet()){
-            if(holder.is(enchantment))
+            if(holder.is(Enchantments.VANISHING_CURSE))
                 return true;
         }
         return false;
     }
 
-    private static ItemStack removeEnchantment(ItemStack stack, ResourceKey<Enchantment> enchantment){
+    private static ItemStack removeBindingCurse(ItemStack stack){
         var component = stack.getComponents().get(DataComponents.ENCHANTMENTS);
         if(null == component || component.isEmpty())
             return stack;
 
         var mutable = new ItemEnchantments.Mutable(component);
-        mutable.removeIf(h -> h.is(enchantment));
+        mutable.removeIf(h -> h.is(Enchantments.BINDING_CURSE));
         stack.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
         return stack;
+    }
+
+    private static boolean sinks(Level level, BlockPos position){
+        var state = level.getBlockState(position);
+        return state.is(GRAVE_SINK)
+            || state.is(GRAVE_SINK_IF_OPEN, s -> !s.isFaceSturdy(level, position, Direction.UP));
+    }
+
+    private static BlockPos sinkGrave(Level level, BlockPos position){
+        var pos = position.mutable();
+        while (pos.getY() >= level.getMinBuildHeight() && sinks(level, pos)){
+            pos.move(Direction.DOWN, 1);
+        }
+        if(pos.getY() < level.getMinBuildHeight()){
+            // fell out of the world, wrap around to the top.
+            pos.setY(level.getMaxBuildHeight());
+            while(pos.getY() >= position.getY() && sinks(level, pos)){
+                pos.move(Direction.DOWN, 1);
+            }
+
+            if(pos.getY() < position.getY()){
+                pos.setY(level.getMinBuildHeight());
+            }
+        }
+
+        // shift down 1 if we're above a placeable (lily pads, etc.)
+        if (level.getBlockState(pos).is(GRAVE_PLACEABLE))
+            return pos.below().immutable();
+
+        return pos.immutable();
+    }
+
+    private static BlockPos floatGrave(Level level, BlockPos position){
+        // we float in the upper half of the armor stand
+        var pos = position.above().mutable();
+
+        // float as high as we can go (checking the block above where the grave is placed)
+        // the top half can be above the build limit!
+        while(pos.getY() <= level.getMaxBuildHeight() + 1 && level.getBlockState(pos).is(GRAVE_FLOAT)) {
+            pos.move(Direction.UP, 1);
+        }
+
+        if(pos.getY() <= level.getMinBuildHeight() + 1){
+            // we fell into the void -- this should only happen if the column is empty.
+            return position.atY(level.getMinBuildHeight());
+        }
+
+        // cap at build height
+        pos.setY(Math.min(pos.getY(), level.getMaxBuildHeight() + 1));
+
+        // if we can't place a grave here
+        if(!level.getBlockState(pos).is(GRAVE_PLACEABLE)){
+            // and we're above dangerous blocks, try to go through thin ceilings
+            if(level.getBlockState(pos.below()).is(GRAVE_DANGEROUS_FLOAT)){
+                var max = Objects.requireNonNull(level.getServer()).getGameRules().getInt(GRAVE_DANGEROUS_CEILING_HEIGHT);
+                for(var i = 0; i < max && pos.getY() + i <= level.getMaxBuildHeight(); i += 1){
+                    var test = pos.above(i + 1);
+                    var state = level.getBlockState(test);
+                    // as long as that wouldn't put us in more dangerous blocks
+                    if(state.is(GRAVE_PLACEABLE) && !state.is(GRAVE_DANGEROUS_FLOAT))
+                        return test.below().immutable();
+                }
+            }
+
+            // otherwise fail and return the original position
+            return position;
+        }
+
+        // if we get here, we must be in a safe block.
+        return pos.below().immutable();
+    }
+
+    private static void placeSupportBlock(Level level, BlockPos position){
+        if(level.getBlockState(position.above()).is(GRAVE_SUPPORTS)){
+            return;
+        }
+        if(!sinks(level, position))
+            return;
+
+        var dimension = level.dimension();
+        if(dimension == Level.NETHER){
+            level.setBlock(position, Blocks.NETHERRACK.defaultBlockState(), 2);
+        } else if(dimension == Level.END){
+            var state = level.getBlockState(position);
+            if(state.is(Blocks.WATER) && state.getFluidState().isSource())
+                level.setBlock(position.above(), Blocks.LILY_PAD.defaultBlockState(), 2);
+            else
+                level.setBlock(position, Blocks.END_STONE.defaultBlockState(), 2);
+        } else if(dimension == Level.OVERWORLD){
+            if(position.above().getY() >= level.getSeaLevel()){
+                var state = level.getBlockState(position);
+                if(state.is(Blocks.LAVA)){
+                    level.setBlock(position, Blocks.STONE.defaultBlockState(), 2);
+                } else if(state.is(Blocks.WATER) && state.getFluidState().isSource()){
+                    level.setBlock(position.above(), Blocks.LILY_PAD.defaultBlockState(), 2);
+                } else {
+                    level.setBlock(position, Blocks.DIRT.defaultBlockState(), 2);
+                }
+            } else if(position.getY() <= 0) {
+                level.setBlock(position, Blocks.DEEPSLATE.defaultBlockState(), 2);
+            } else {
+                level.setBlock(position, Blocks.STONE.defaultBlockState(), 2);
+            }
+        } else {
+            level.setBlock(position, Blocks.STONE.defaultBlockState(), 2);
+        }
     }
 
     public static void onDeath(ServerPlayer player, DamageSource source, float damageAmount){
@@ -128,11 +263,11 @@ public class Graves {
         var inventoryList = NonNullList.withSize(inventory.getContainerSize(), ItemStack.EMPTY);
         for(var i = 0; i < inventoryList.size(); i += 1){
             var stack = inventory.getItem(i);
-            if(hasEnchantment(stack, Enchantments.VANISHING_CURSE)) {
+            if(hasVanishingCurse(stack)) {
                 inventoryList.set(i, ItemStack.EMPTY);
                 stack.setCount(0);
             } else {
-                inventoryList.set(i, removeEnchantment(stack.copyAndClear(), Enchantments.BINDING_CURSE));
+                inventoryList.set(i, removeBindingCurse(stack.copyAndClear()));
             }
         }
         grave.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(inventoryList));
@@ -166,50 +301,10 @@ public class Graves {
         armorStand.setCustomNameVisible(true);
 
         // calculate spawn position for grave
-        // spawn a fake block if necessary (for void deaths/lava lakes)
-        var position = player.blockPosition().mutable();
-        var placeBlock = false;
-        while (position.getY() >= level.getMinBuildHeight() && !level.getBlockState(position).isSolid())
-            position.move(Direction.DOWN, 1);
-
-        if(position.getY() < level.getMinBuildHeight()){
-            // went into the void, go back to the top and start over.
-            position.setY(level.getMaxBuildHeight());
-            while(position.getY() >= level.getMinBuildHeight() && !level.getBlockState(position).isSolid())
-                position.move(Direction.DOWN, 1);
-        }
-
-        if(position.getY() < level.getMinBuildHeight()){
-            // Went out the top. We must be in an empty column.
-            placeBlock = true;
-            position.setY(level.getMinBuildHeight());
-        } else if(level.getBlockState(position.above(1)).is(Blocks.LAVA)
-            && level.getBlockState(position.above(2)).is(Blocks.LAVA)
-            && level.getBlockState(position.above(3)).is(Blocks.LAVA)){
-            // check for lava lakes
-            var testPosition = position.above(3).mutable();
-            while(testPosition.getY() <= level.getMaxBuildHeight() && level.getBlockState(testPosition).is(Blocks.LAVA)){
-                testPosition.move(Direction.UP, 1);
-            }
-
-            // maybe with a small roof
-            var top = level.getBlockState(testPosition);
-            if(top.isAir()){
-                placeBlock = true;
-                position.setY(Math.min(testPosition.getY(), level.getMaxBuildHeight()));
-            } else if(top.isSolid()){
-                for(var i = 1; i <= 3; i += 1) {
-                    if (level.getBlockState(testPosition.above(i)).isAir() && level.getBlockState(testPosition.above(i - 1)).isSolid()) {
-                        position.setY(testPosition.above(i).getY());
-                        break;
-                    }
-                }
-            }
-        }
-
-        if(placeBlock){
-            level.setBlock(position, getFillerBlock(level.dimension()), 2);
-        }
+        // place a support block if necessary (for void deaths/lakes)
+        var position = floatGrave(level, sinkGrave(level, player.blockPosition()));
+        LOGGER.info("Placing in {} at {}", level.getBlockState(position), position);
+        placeSupportBlock(level, position);
 
         armorStand.setXRot(0);
         armorStand.setPos(position.getX() + 0.5f, position.getY() + 0.15f, position.getZ() + 0.5f);
