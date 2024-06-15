@@ -1,7 +1,0 @@
-// 1.21	2024-06-14T15:03:25.2368582	huskycord/Tags for minecraft:block
-c91007dbe951be6734c1feb6cd8d52236750c045 data\huskycord\tags\block\grave_sink_if_open.json
-db6195d77bd598771b111d12750ba39f41fe35c7 data\huskycord\tags\block\grave_dangerous_float.json
-d13e1c376cb3fb05d942b7783a2b68fea9ae50a4 data\huskycord\tags\block\grave_sink.json
-a8a12c8f5890955916b34b77b082dac19a66b31d data\huskycord\tags\block\grave_float.json
-8980c49637e6d4fe1757631aa0a1bccdcc6dd889 data\huskycord\tags\block\grave_supports.json
-c98be326db7f379fa9f424c1a9325e91b4e0091f data\huskycord\tags\block\grave_placeable.json

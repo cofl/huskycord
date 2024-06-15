@@ -7,6 +7,7 @@ public class HuskycordDatagen implements DataGeneratorEntrypoint {
     @Override
     public void onInitializeDataGenerator(FabricDataGenerator generator) {
         var pack = generator.createPack();
-        pack.addProvider(GraveTagGenerator::new);
+        pack.addProvider(BlockTagGenerator::new);
+        pack.addProvider(ItemTagGenerator::new);
     }
 }

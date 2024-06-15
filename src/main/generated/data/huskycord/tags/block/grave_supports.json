@@ -4,6 +4,8 @@
     "minecraft:snow",
     "minecraft:lily_pad",
     "minecraft:cauldron",
-    "minecraft:water_cauldron"
+    "minecraft:water_cauldron",
+    "minecraft:cake",
+    "#minecraft:candle_cakes"
   ]
 }

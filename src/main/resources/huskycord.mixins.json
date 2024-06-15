@@ -5,7 +5,10 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "DefaultDispenseItemBehaviorMixin",
-    "EntityMixin"
+    "EntityMixin",
+    "ItemEntityMixin",
+    "MinecraftServerMixin",
+    "ServerTickRateManagerMixin"
   ],
   "client": [
   ],
