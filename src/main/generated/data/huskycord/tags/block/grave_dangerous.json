@@ -1,0 +1,13 @@
+{
+  "values": [
+    "minecraft:lava_cauldron",
+    "minecraft:end_gateway",
+    "minecraft:end_portal",
+    "minecraft:lava",
+    "minecraft:nether_portal",
+    "minecraft:powder_snow",
+    "minecraft:powder_snow_cauldron",
+    "#minecraft:fire",
+    "#minecraft:stairs"
+  ]
+}

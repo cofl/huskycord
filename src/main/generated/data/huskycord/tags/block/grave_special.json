@@ -1,0 +1,17 @@
+{
+  "values": [
+    "#huskycord:grave_sink",
+    "#huskycord:grave_sink_if_open",
+    "#huskycord:grave_float",
+    "#huskycord:grave_float_if_above_is_float",
+    "#huskycord:grave_float_waterlogged",
+    "#huskycord:grave_float_waterlogged_if_open",
+    "#huskycord:grave_float_from_if_waterlogged",
+    "#huskycord:grave_float_from_if_waterlogged_lower",
+    "#huskycord:grave_placeable",
+    "#huskycord:grave_replaceable",
+    "#huskycord:grave_supports",
+    "#huskycord:grave_supports_if_closed",
+    "#huskycord:grave_dangerous"
+  ]
+}

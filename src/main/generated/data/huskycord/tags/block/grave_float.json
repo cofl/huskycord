@@ -1,7 +1,14 @@
 {
   "values": [
-    "minecraft:water",
     "minecraft:bubble_column",
-    "#huskycord:grave_dangerous_float"
+    "minecraft:end_gateway",
+    "minecraft:kelp",
+    "minecraft:kelp_plant",
+    "minecraft:lava",
+    "minecraft:lily_pad",
+    "minecraft:powder_snow",
+    "minecraft:seagrass",
+    "minecraft:tall_seagrass",
+    "minecraft:water"
   ]
 }

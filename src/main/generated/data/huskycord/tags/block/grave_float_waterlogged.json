@@ -1,0 +1,28 @@
+{
+  "values": [
+    "minecraft:amethyst_cluster",
+    "minecraft:bamboo_sapling",
+    "minecraft:big_dripleaf",
+    "minecraft:big_dripleaf_stem",
+    "minecraft:glow_lichen",
+    "minecraft:hanging_roots",
+    "minecraft:ladder",
+    "minecraft:lantern",
+    "minecraft:large_amethyst_bud",
+    "minecraft:light",
+    "minecraft:medium_amethyst_bud",
+    "minecraft:sculk_vein",
+    "minecraft:sea_pickle",
+    "minecraft:small_amethyst_bud",
+    "minecraft:small_dripleaf",
+    "minecraft:soul_lantern",
+    "#minecraft:signs",
+    "#minecraft:wall_hanging_signs",
+    "#minecraft:doors",
+    "#minecraft:candles",
+    "#minecraft:saplings",
+    "#minecraft:corals",
+    "#minecraft:wall_corals",
+    "#huskycord:dead_corals"
+  ]
+}

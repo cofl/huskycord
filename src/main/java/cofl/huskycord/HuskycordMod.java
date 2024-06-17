@@ -15,6 +15,9 @@ public class HuskycordMod implements ModInitializer {
     public static final TagKey<Block> DISPENSER_PLACEABLE = TagKey.create(
         Registries.BLOCK,
         ResourceLocation.fromNamespaceAndPath(MOD_NAME, "dispenser_placeable"));
+    public static final TagKey<Block> DEAD_CORALS = TagKey.create(
+        Registries.BLOCK,
+        ResourceLocation.fromNamespaceAndPath(MOD_NAME, "dead_corals"));
     public static final TagKey<Item> CONCRETE_POWDER = TagKey.create(
         Registries.ITEM,
         ResourceLocation.fromNamespaceAndPath(MOD_NAME, "concrete_powder"));
