@@ -9,5 +9,6 @@ public class HuskycordDatagen implements DataGeneratorEntrypoint {
         var pack = generator.createPack();
         pack.addProvider(BlockTagGenerator::new);
         pack.addProvider(ItemTagGenerator::new);
+        pack.addProvider(RecipeGenerator::new);
     }
 }

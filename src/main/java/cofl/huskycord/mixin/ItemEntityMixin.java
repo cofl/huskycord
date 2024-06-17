@@ -36,9 +36,9 @@ public abstract class ItemEntityMixin extends Entity implements TraceableEntity 
 
         var item = this.getItem();
         if (item.is(CONCRETE_POWDER)
-            && this.getInBlockState().is(Blocks.WATER_CAULDRON)
             && item.getItem() instanceof BlockItem blockItem
             && blockItem.getBlock() instanceof ConcretePowderBlock concretePowderBlock
+            && this.getInBlockState().is(Blocks.WATER_CAULDRON)
         ){
             var concrete = concretePowderBlock.concrete;
             this.setItem(new ItemStack(concrete.asItem(), item.getCount()));

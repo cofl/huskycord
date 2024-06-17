@@ -1,9 +1,11 @@
 {
   "values": [
     "minecraft:water",
+    "minecraft:bubble_column",
     "minecraft:lava",
     "minecraft:powder_snow",
     "#minecraft:air",
-    "#huskycord:grave_supports"
+    "#huskycord:grave_supports",
+    "#huskycord:grave_supports_if_closed"
   ]
 }

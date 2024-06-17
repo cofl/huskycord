@@ -2,3 +2,15 @@ accessWidener v2 named
 accessible method net/minecraft/world/entity/decoration/ArmorStand setSmall (Z)V
 accessible field net/minecraft/world/entity/decoration/ArmorStand disabledSlots I
 accessible field net/minecraft/world/level/block/ConcretePowderBlock concrete Lnet/minecraft/world/level/block/Block;
+accessible method net/minecraft/data/recipes/ShapedRecipeBuilder ensureValid (Lnet/minecraft/resources/ResourceLocation;)Lnet/minecraft/world/item/crafting/ShapedRecipePattern;
+accessible field net/minecraft/data/recipes/ShapedRecipeBuilder criteria Ljava/util/Map;
+accessible field net/minecraft/data/recipes/ShapedRecipeBuilder group Ljava/lang/String;
+accessible field net/minecraft/data/recipes/ShapedRecipeBuilder category Lnet/minecraft/data/recipes/RecipeCategory;
+accessible field net/minecraft/data/recipes/ShapedRecipeBuilder result Lnet/minecraft/world/item/Item;
+accessible field net/minecraft/data/recipes/ShapedRecipeBuilder count I
+accessible field net/minecraft/data/recipes/ShapedRecipeBuilder showNotification Z
+accessible field net/minecraft/world/item/crafting/ShapedRecipe group Ljava/lang/String;
+accessible field net/minecraft/world/item/crafting/ShapedRecipe category Lnet/minecraft/world/item/crafting/CraftingBookCategory;
+accessible field net/minecraft/world/item/crafting/ShapedRecipe pattern Lnet/minecraft/world/item/crafting/ShapedRecipePattern;
+accessible field net/minecraft/world/item/crafting/ShapedRecipe result Lnet/minecraft/world/item/ItemStack;
+accessible field net/minecraft/world/item/crafting/ShapedRecipe showNotification Z

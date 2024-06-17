@@ -8,6 +8,7 @@
     "EntityMixin",
     "ItemEntityMixin",
     "MinecraftServerMixin",
+    "RecipeMixin",
     "ServerTickRateManagerMixin"
   ],
   "client": [

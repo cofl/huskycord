@@ -2,5 +2,6 @@
   "gamerule.deathExperienceLoss": "Death Experience Loss",
   "gamerule.canOpOpenGraves": "Can OP Open Graves?",
   "gamerule.tellGravePosition": "Tell Grave Position",
-  "tag.item.huskycord.concrete_powder": "Concrete Powder"
+  "tag.item.huskycord.concrete_powder": "Concrete Powder",
+  "tag.item.huskycord.retain_in_crafting": "Retained in Crafting"
 }

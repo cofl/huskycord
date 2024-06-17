@@ -19,6 +19,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -40,9 +41,13 @@ import net.minecraft.world.level.GameRules.Category;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
@@ -78,6 +83,14 @@ public class Graves {
     public static final TagKey<Block> GRAVE_FLOAT = TagKey.create(
         Registries.BLOCK,
         ResourceLocation.fromNamespaceAndPath(MOD_NAME, "grave_float"));
+    // and these if they're waterlogged
+    public static final TagKey<Block> GRAVE_FLOAT_WATERLOGGED = TagKey.create(
+        Registries.BLOCK,
+        ResourceLocation.fromNamespaceAndPath(MOD_NAME, "grave_float_waterlogged"));
+    // and these if they're waterlogged and open
+    public static final TagKey<Block> GRAVE_FLOAT_WATERLOGGED_IF_OPEN = TagKey.create(
+        Registries.BLOCK,
+        ResourceLocation.fromNamespaceAndPath(MOD_NAME, "grave_float_waterlogged_if_open"));
     // and if they float over these, try to peek through the ceiling
     public static final TagKey<Block> GRAVE_DANGEROUS_FLOAT = TagKey.create(
         Registries.BLOCK,
@@ -91,6 +104,10 @@ public class Graves {
     public static final TagKey<Block> GRAVE_SUPPORTS = TagKey.create(
         Registries.BLOCK,
         ResourceLocation.fromNamespaceAndPath(MOD_NAME, "grave_supports"));
+    // ...only if they're closed
+    public static final TagKey<Block> GRAVE_SUPPORTS_IF_CLOSED = TagKey.create(
+        Registries.BLOCK,
+        ResourceLocation.fromNamespaceAndPath(MOD_NAME, "grave_supports_if_closed"));
 
     private static final String GRAVE_ENTITY_TAG = "huskycordGrave";
     public static void register(){
@@ -143,7 +160,13 @@ public class Graves {
     private static boolean sinks(Level level, BlockPos position){
         var state = level.getBlockState(position);
         return state.is(GRAVE_SINK)
-            || state.is(GRAVE_SINK_IF_OPEN, s -> !s.isFaceSturdy(level, position, Direction.UP));
+            || state.is(GRAVE_SINK_IF_OPEN) && impliesOpenState(state, true);
+    }
+
+    private static boolean impliesBottomHalf(BlockState state){
+        if(!state.hasProperty(BlockStateProperties.HALF))
+            return true;
+        return state.getValue(BlockStateProperties.HALF) == Half.BOTTOM;
     }
 
     private static BlockPos sinkGrave(Level level, BlockPos position){
@@ -164,10 +187,37 @@ public class Graves {
         }
 
         // shift down 1 if we're above a placeable (lily pads, etc.)
-        if (level.getBlockState(pos).is(GRAVE_PLACEABLE))
+        // special-case trapdoors, should only be placeable if in down state.
+        var state = level.getBlockState(pos);
+        if (state.is(GRAVE_PLACEABLE) && impliesBottomHalf(state)){
             return pos.below().immutable();
+        }
 
         return pos.immutable();
+    }
+
+    private static boolean impliesOpenState(BlockState state, boolean open){
+        if(!state.hasProperty(BlockStateProperties.OPEN))
+            return true;
+        return state.getValue(BlockStateProperties.OPEN) == open;
+    }
+
+    private static boolean floats(Level level, BlockPos position){
+        var state = level.getBlockState(position);
+        return state.is(GRAVE_FLOAT)
+            || state.is(GRAVE_FLOAT_WATERLOGGED) && state.getFluidState().is(FluidTags.WATER)
+            || state.is(GRAVE_FLOAT_WATERLOGGED_IF_OPEN)
+                && state.getFluidState().is(FluidTags.WATER)
+                && impliesOpenState(state, true);
+    }
+
+    private static boolean failFloat(Level level, BlockPos position){
+        var state = level.getBlockState(position);
+        if (!state.is(GRAVE_PLACEABLE))
+            return true;
+        if(state.is(GRAVE_SUPPORTS_IF_CLOSED) && impliesOpenState(state, true))
+            return true;
+        return false;
     }
 
     private static BlockPos floatGrave(Level level, BlockPos position){
@@ -176,7 +226,7 @@ public class Graves {
 
         // float as high as we can go (checking the block above where the grave is placed)
         // the top half can be above the build limit!
-        while(pos.getY() <= level.getMaxBuildHeight() + 1 && level.getBlockState(pos).is(GRAVE_FLOAT)) {
+        while(pos.getY() <= level.getMaxBuildHeight() + 1 && floats(level, pos)) {
             pos.move(Direction.UP, 1);
         }
 
@@ -189,7 +239,7 @@ public class Graves {
         pos.setY(Math.min(pos.getY(), level.getMaxBuildHeight() + 1));
 
         // if we can't place a grave here
-        if(!level.getBlockState(pos).is(GRAVE_PLACEABLE)){
+        if(failFloat(level, pos)){
             // and we're above dangerous blocks, try to go through thin ceilings
             if(level.getBlockState(pos.below()).is(GRAVE_DANGEROUS_FLOAT)){
                 var max = Objects.requireNonNull(level.getServer()).getGameRules().getInt(GRAVE_DANGEROUS_CEILING_HEIGHT);
@@ -210,8 +260,27 @@ public class Graves {
         return pos.below().immutable();
     }
 
+    private static boolean useLilyPad(BlockState state){
+        if(state.is(Blocks.WATER) && state.getFluidState().isSource())
+            return true;
+        if(state.is(GRAVE_FLOAT_WATERLOGGED) && state.getFluidState().is(FluidTags.WATER)){
+            if(state.hasProperty(BlockStateProperties.HALF)
+                && state.getValue(BlockStateProperties.HALF) == Half.TOP)
+                return false;
+
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean supports(Level level, BlockPos position){
+        var state = level.getBlockState(position);
+        return state.is(GRAVE_SUPPORTS)
+            || state.is(GRAVE_SUPPORTS_IF_CLOSED) && impliesOpenState(state, false);
+    }
+
     private static void placeSupportBlock(Level level, BlockPos position){
-        if(level.getBlockState(position.above()).is(GRAVE_SUPPORTS)){
+        if(supports(level, position.above())){
             return;
         }
         if(!sinks(level, position))
@@ -222,7 +291,7 @@ public class Graves {
             level.setBlock(position, Blocks.NETHERRACK.defaultBlockState(), 2);
         } else if(dimension == Level.END){
             var state = level.getBlockState(position);
-            if(state.is(Blocks.WATER) && state.getFluidState().isSource())
+            if(useLilyPad(state))
                 level.setBlock(position.above(), Blocks.LILY_PAD.defaultBlockState(), 2);
             else
                 level.setBlock(position, Blocks.END_STONE.defaultBlockState(), 2);
@@ -231,7 +300,7 @@ public class Graves {
                 var state = level.getBlockState(position);
                 if(state.is(Blocks.LAVA)){
                     level.setBlock(position, Blocks.STONE.defaultBlockState(), 2);
-                } else if(state.is(Blocks.WATER) && state.getFluidState().isSource()){
+                } else if(useLilyPad(state)){
                     level.setBlock(position.above(), Blocks.LILY_PAD.defaultBlockState(), 2);
                 } else {
                     level.setBlock(position, Blocks.DIRT.defaultBlockState(), 2);
@@ -244,6 +313,18 @@ public class Graves {
         } else {
             level.setBlock(position, Blocks.STONE.defaultBlockState(), 2);
         }
+    }
+
+    private static float getGraveVerticalOffset(Level level, BlockPos position){
+        var state = level.getBlockState(position.above());
+        if(!state.is(GRAVE_PLACEABLE))
+            return 0.15f;
+
+        var shape = state.getVisualShape(level, position.above(), CollisionContext.empty());
+        var max = (float)shape.max(Direction.Axis.Y);
+        if(max < 0.15f)
+            return 0.15f;
+        return 0.1f + Math.min(max, 1f);
     }
 
     public static void onDeath(ServerPlayer player){
@@ -311,7 +392,9 @@ public class Graves {
         placeSupportBlock(level, position);
 
         graveEntity.setXRot(0);
-        graveEntity.setPos(position.getX() + 0.5f, position.getY() + 0.15f, position.getZ() + 0.5f);
+        graveEntity.setPos(position.getX() + 0.5f,
+            position.getY() + getGraveVerticalOffset(level, position),
+            position.getZ() + 0.5f);
         graveEntity.addTag(GRAVE_ENTITY_TAG);
         level.addFreshEntity(graveEntity);
         LOGGER.info("Spawned grave for {} at {} in {}", player.getName().getString(), graveEntity.position(), level.dimension());

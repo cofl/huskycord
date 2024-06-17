@@ -33,5 +33,9 @@ public class ItemTagGenerator extends FabricTagProvider.ItemTagProvider {
             Items.RED_CONCRETE_POWDER,
             Items.BLACK_CONCRETE_POWDER
         );
+
+        getOrCreateTagBuilder(HuskycordMod.RETAIN_IN_CRAFTING).add(
+            Items.ELYTRA
+        );
     }
 }
