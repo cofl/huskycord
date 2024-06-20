@@ -20,7 +20,7 @@ public abstract class EntityMixin {
         var self = (Entity)(Object)this;
 
         //noinspection UnreachableCode
-        if(self instanceof Mob){
+        if(self instanceof Mob && component != null){
             var name = component.getString();
             if(name.equalsIgnoreCase("silence me")
                     || name.equalsIgnoreCase("silence_me")){

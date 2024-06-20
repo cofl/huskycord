@@ -19,6 +19,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -179,14 +180,12 @@ public class Graves {
         entity.setPos(position);
 
         level.addFreshEntity(entity);
+        PlayerGraveData.getServerState(server).add(entity);
         LOGGER.info("Spawned grave for {} at {} in {}", player.getName().getString(), position, level.dimension().location());
 
         if (rules.getBoolean(TELL_GRAVE_POSITION)
             || !player.position().closerThan(position, rules.getInt(TELL_GRAVE_DISTANCE)))
-            player.sendSystemMessage(
-                Component.literal("Your grave is at ")
-                    .append(Component.literal(String.format("[%d, %d, %d]", (int)position.x, (int)position.y + 1, (int)position.z))
-                        .setStyle(Style.EMPTY.withColor(ChatFormatting.GREEN))));
+            player.sendSystemMessage(Component.literal("Your grave is at ").append(ChatUtil.asComponent(position)));
     }
 
     // player.totalExperience is inaccurate when adding XP with the /xp (levels) command.
@@ -263,7 +262,7 @@ public class Graves {
         return stack;
     }
 
-    private static Entity createGraveEntity(ServerPlayer player, Level level, ItemStack graveItem){
+    private static ArmorStand createGraveEntity(ServerPlayer player, Level level, ItemStack graveItem){
         var entity = new ArmorStand(EntityType.ARMOR_STAND, level);
         entity.setInvisible(true);
         entity.setNoGravity(true);
@@ -494,14 +493,28 @@ public class Graves {
     }
 
     private static Vec3 adjustedPosition(Level level, BlockPos position){
-        var state = level.getBlockState(position.below());
-        var shape = state.getShape(level, position.below(), CollisionContext.empty());
+        return new Vec3(
+            position.getX() + 0.5,
+            position.getY() - 0.85 - blockDepth(level, position.below()),
+            position.getZ() + 0.5
+        );
+    }
+
+    private static float blockDepth(Level level, BlockPos position){
+        var state = level.getBlockState(position);
+        if(state.is(Blocks.SCULK_SHRIEKER))
+            return 0.5f;
+        if (state.is(BlockTags.CAULDRONS) || state.is(Blocks.COMPOSTER))
+            return 0.75f;
+
+        var shape = state.getShape(level, position, CollisionContext.empty());
         var depth = 1f - (float)Math.clamp(0, shape.max(Direction.Axis.Y), 1);
 
         // very, very short blocks have slight issues with how they line up
         if (depth >= 0.9f)
-            depth = 1f;
-        return new Vec3(position.getX() + 0.5, position.getY() - 0.85 - depth, position.getZ() + 0.5);
+            return 1f;
+
+        return depth;
     }
 
     private static InteractionResult onEntityInteract(Player player, Level level, InteractionHand hand, Entity entity, @Nullable EntityHitResult hitResult){
@@ -514,7 +527,13 @@ public class Graves {
         )
             return InteractionResult.PASS;
 
-        var grave = graveEntity.getItemBySlot(EquipmentSlot.HEAD);
+        var server = player.getServer();
+        if(server == null)
+            // how does this even happen?
+            // better safe than sorry.
+            return InteractionResult.FAIL;
+
+        var grave = getGraveItem(graveEntity);
         var owner = getGraveOwner(grave);
         if(!canOpenGrave(level, player, owner))
             return InteractionResult.FAIL;
@@ -568,6 +587,7 @@ public class Graves {
 
         // clean up armor stand
         entity.remove(Entity.RemovalReason.DISCARDED);
+        PlayerGraveData.getServerState(server).remove(graveEntity);
 
         level.playSound(null, player.blockPosition(),
             SoundEvents.SOUL_SAND_BREAK, SoundSource.PLAYERS,
@@ -576,7 +596,11 @@ public class Graves {
         return InteractionResult.SUCCESS_NO_ITEM_USED;
     }
 
-    private static ResolvableProfile getGraveOwner(ItemStack grave){
+    public static @NotNull ItemStack getGraveItem(ArmorStand graveEntity) {
+        return graveEntity.getItemBySlot(EquipmentSlot.HEAD);
+    }
+
+    public static ResolvableProfile getGraveOwner(ItemStack grave){
         return grave.getComponents().get(DataComponents.PROFILE);
     }
 
