@@ -52,7 +52,7 @@ public class Commands {
             return 0;
         }
 
-        var grave = graves.getFirst();
+        var grave = graves.getLast();
         var message = Component.literal("Your last grave")
             .append(graveCount(graves.size()))
             .append(" is at ")
@@ -80,7 +80,6 @@ public class Commands {
     private static int allGraves(CommandContext<CommandSourceStack> context){
         var player = Objects.requireNonNull(context.getSource().getPlayer());
         var server = Objects.requireNonNull(player.getServer());
-        var level = Objects.requireNonNull(player.serverLevel());
         var graves = PlayerGraveData.getServerState(server).getGraves(player);
 
         var message = switch (graves.size()){
