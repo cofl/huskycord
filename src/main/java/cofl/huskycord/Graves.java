@@ -181,11 +181,15 @@ public class Graves {
 
         level.addFreshEntity(entity);
         PlayerGraveData.getServerState(server).add(entity);
-        LOGGER.info("Spawned grave for {} at {} in {}", player.getName().getString(), position, level.dimension().location());
+        LOGGER.info("Spawned grave for {} at {} in {}",
+            player.getName().getString(),
+            position.relative(Direction.UP, 1),
+            level.dimension().location());
 
         if (rules.getBoolean(TELL_GRAVE_POSITION)
             || !player.position().closerThan(position, rules.getInt(TELL_GRAVE_DISTANCE)))
-            player.sendSystemMessage(Component.literal("Your grave is at ").append(ChatUtil.asComponent(position)));
+            player.sendSystemMessage(Component.literal("Your grave is at ")
+                .append(ChatUtil.asComponent(position.relative(Direction.UP, 1))));
     }
 
     // player.totalExperience is inaccurate when adding XP with the /xp (levels) command.
