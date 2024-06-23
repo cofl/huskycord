@@ -56,7 +56,7 @@ public class Commands {
         var message = Component.literal("Your last grave")
             .append(graveCount(graves.size()))
             .append(" is at ")
-            .append(ChatUtil.asComponent(grave.position().relative(Direction.UP, 1)))
+            .append(ChatUtil.asComponent(grave.position().relative(Direction.UP, 1), grave.dimension()))
             .append(graveDimension(level.dimension(), grave.dimension()))
             .append(" ")
             .append(ChatUtil.age(grave.dateTime(), LocalDateTime.now())
@@ -91,7 +91,7 @@ public class Commands {
         var now = LocalDateTime.now();
         for (var grave: graves){
             message = message.append(Component.literal("\n    ")
-                .append(ChatUtil.asComponent(grave.position().relative(Direction.UP, 1)))
+                .append(ChatUtil.asComponent(grave.position().relative(Direction.UP, 1), grave.dimension()))
                 .append(" in ").append(dimensionName(grave.dimension())))
                 .append(" ")
                 .append(ChatUtil.age(grave.dateTime(), now)

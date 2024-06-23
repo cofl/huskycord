@@ -176,8 +176,7 @@ public class Graves {
         var realPosition = ensureSupported(level, blockPosition);
         var position = adjustedPosition(level, realPosition);
         var grave = createGraveItem(player, keepExperience);
-        var entity = createGraveEntity(player, level, grave);
-        entity.setPos(position);
+        var entity = createGraveEntity(player, level, grave, position);
 
         level.addFreshEntity(entity);
         PlayerGraveData.getServerState(server).add(entity);
@@ -189,7 +188,7 @@ public class Graves {
         if (rules.getBoolean(TELL_GRAVE_POSITION)
             || !player.position().closerThan(position, rules.getInt(TELL_GRAVE_DISTANCE)))
             player.sendSystemMessage(Component.literal("Your grave is at ")
-                .append(ChatUtil.asComponent(position.relative(Direction.UP, 1))));
+                .append(ChatUtil.asComponent(position.relative(Direction.UP, 1), level.dimension())));
     }
 
     // player.totalExperience is inaccurate when adding XP with the /xp (levels) command.
@@ -266,8 +265,9 @@ public class Graves {
         return stack;
     }
 
-    private static ArmorStand createGraveEntity(ServerPlayer player, Level level, ItemStack graveItem){
+    private static ArmorStand createGraveEntity(ServerPlayer player, Level level, ItemStack graveItem, Vec3 position){
         var entity = new ArmorStand(EntityType.ARMOR_STAND, level);
+        entity.addTag(GRAVE_ENTITY_TAG);
         entity.setInvisible(true);
         entity.setNoGravity(true);
         entity.setSilent(true);
@@ -281,14 +281,13 @@ public class Graves {
         entity.setItemSlot(EquipmentSlot.HEAD, graveItem);
 
         var gray = Style.EMPTY.withColor(ChatFormatting.GRAY);
+        var wi = Style.EMPTY.withColor(ChatFormatting.WHITE).withItalic(true);
         entity.setCustomName(Component.literal("[").setStyle(gray)
-            .append(player.getName().plainCopy().setStyle(Style.EMPTY
-                .withColor(ChatFormatting.WHITE)
-                .withItalic(true)))
+            .append(player.getName().plainCopy().setStyle(wi))
             .append(Component.literal("]").setStyle(gray)));
 
         entity.setXRot(0);
-        entity.addTag(GRAVE_ENTITY_TAG);
+        entity.setPos(position);
 
         return entity;
     }
