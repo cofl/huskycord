@@ -1,7 +1,6 @@
 package cofl.huskycord;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.gamerule.v1.GameRuleFactory;
 import net.fabricmc.fabric.api.gamerule.v1.GameRuleRegistry;
@@ -15,7 +14,6 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -23,10 +21,10 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.ai.targeting.TargetingConditions;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -45,14 +43,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
-import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Vector3f;
 
 import java.util.Objects;
 
@@ -74,8 +71,6 @@ public class Graves {
         GameRuleRegistry.register("tellGraveDistance", GameRules.Category.PLAYER, GameRuleFactory.createIntRule(4, 0, 16));
     public static final GameRules.Key<GameRules.IntegerValue> GRAVE_DANGEROUS_CEILING_HEIGHT =
         GameRuleRegistry.register("graveDangerousCeilingHeight", GameRules.Category.PLAYER, GameRuleFactory.createIntRule(3, 0, 16));
-    public static final GameRules.Key<GameRules.IntegerValue> GRAVE_NAME_VISIBLE_RADIUS =
-        GameRuleRegistry.register("graveNameVisibleRadius", GameRules.Category.PLAYER, GameRuleFactory.createIntRule(5, 1, 16));
 
     // graves always sink through these
     public static final TagKey<Block> GRAVE_SINK = TagKey.create(
@@ -148,7 +143,6 @@ public class Graves {
         }));
 
         UseEntityCallback.EVENT.register(Graves::onEntityInteract);
-        ServerTickEvents.START_WORLD_TICK.register(Graves::onStartTick);
     }
 
     public static void onDeath(ServerPlayer player){
@@ -176,9 +170,11 @@ public class Graves {
         var realPosition = ensureSupported(level, blockPosition);
         var position = adjustedPosition(level, realPosition);
         var grave = createGraveItem(player, keepExperience);
-        var entity = createGraveEntity(player, level, grave, position);
+        var entity = createGraveEntity(level, grave, position);
+        var nameplate = createNameplate(player, level, entity);
 
         level.addFreshEntity(entity);
+        level.addFreshEntity(nameplate);
         PlayerGraveData.getServerState(server).add(entity);
         LOGGER.info("Spawned grave for {} at {} in {}",
             player.getName().getString(),
@@ -265,7 +261,7 @@ public class Graves {
         return stack;
     }
 
-    private static ArmorStand createGraveEntity(ServerPlayer player, Level level, ItemStack graveItem, Vec3 position){
+    private static ArmorStand createGraveEntity(Level level, ItemStack graveItem, Vec3 position){
         var entity = new ArmorStand(EntityType.ARMOR_STAND, level);
         entity.addTag(GRAVE_ENTITY_TAG);
         entity.setInvisible(true);
@@ -279,17 +275,33 @@ public class Graves {
         // disable helmet slot: https://minecraft.wiki/w/Armor_Stand/ED
         entity.disabledSlots = 16;
         entity.setItemSlot(EquipmentSlot.HEAD, graveItem);
-
-        var gray = Style.EMPTY.withColor(ChatFormatting.GRAY);
-        var wi = Style.EMPTY.withColor(ChatFormatting.WHITE).withItalic(true);
-        entity.setCustomName(Component.literal("[").setStyle(gray)
-            .append(player.getName().plainCopy().setStyle(wi))
-            .append(Component.literal("]").setStyle(gray)));
-
         entity.setXRot(0);
         entity.setPos(position);
 
         return entity;
+    }
+
+    private static final float BLOCK_VIEW_DISTANCE_RATIO = 64.0f;
+    private static Display.TextDisplay createNameplate(ServerPlayer player, Level level, ArmorStand grave){
+        var nameplate = new Display.TextDisplay(EntityType.TEXT_DISPLAY, level);
+        nameplate.addTag(GRAVE_ENTITY_TAG);
+        nameplate.setPos(grave.position().relative(Direction.UP, 1));
+        nameplate.setViewRange(6f / BLOCK_VIEW_DISTANCE_RATIO);
+        nameplate.setBillboardConstraints(Display.BillboardConstraints.VERTICAL);
+        nameplate.startRiding(grave, true);
+        nameplate.setBackgroundColor(0x00_00_00_00);
+        nameplate.setFlags((byte) (nameplate.getFlags() & ~Display.TextDisplay.FLAG_USE_DEFAULT_BACKGROUND));
+
+        var gray = Style.EMPTY.withColor(ChatFormatting.GRAY);
+        var wi = Style.EMPTY.withColor(ChatFormatting.WHITE).withItalic(true);
+        nameplate.setText(Component.literal("[").setStyle(gray)
+            .append(player.getName().plainCopy().setStyle(wi))
+            .append(Component.literal("]").setStyle(gray)));
+
+        var data = nameplate.getEntityData();
+        data.set(Display.DATA_TRANSLATION_ID, new Vector3f(0, -0.35f, 0));
+
+        return nameplate;
     }
 
     private static @Nullable BlockPos getGravePosition(Level level, BlockPos position, GameRules rules){
@@ -521,28 +533,35 @@ public class Graves {
     }
 
     private static InteractionResult onEntityInteract(Player player, Level level, InteractionHand hand, Entity entity, @Nullable EntityHitResult hitResult){
-        if(!(entity instanceof ArmorStand graveEntity)
-            || !entity.getTags().contains(GRAVE_ENTITY_TAG)
-            || level.isClientSide()
+        if (level.isClientSide()
             || player.isSpectator()
             || hand == InteractionHand.OFF_HAND
             || !player.getMainHandItem().isEmpty()
-        )
+            || !entity.getTags().contains(GRAVE_ENTITY_TAG))
             return InteractionResult.PASS;
 
+        if(entity instanceof ArmorStand grave) {
+            if (tryRestoreGrave(player, level, grave))
+                return InteractionResult.SUCCESS_NO_ITEM_USED;
+        }
+
+        return InteractionResult.FAIL;
+    }
+
+    private static boolean tryRestoreGrave(Player player, Level level, ArmorStand graveEntity){
         var server = player.getServer();
         if(server == null)
             // how does this even happen?
             // better safe than sorry.
-            return InteractionResult.FAIL;
+            return false;
 
         var grave = getGraveItem(graveEntity);
         var owner = getGraveOwner(grave);
         if(!canOpenGrave(level, player, owner))
-            return InteractionResult.FAIL;
+            return false;
 
         LOGGER.info("{} opened grave owned by {}.", player.getName().getString(), owner.name().orElseGet(() -> owner.gameProfile().getName()));
-        player.swing(hand, true);
+        player.swing(InteractionHand.MAIN_HAND, true);
 
         // copy items back into inventory
         var container = grave.getComponents().get(DataComponents.CONTAINER);
@@ -589,14 +608,19 @@ public class Graves {
             player.giveExperiencePoints(repairCost);
 
         // clean up armor stand
-        entity.remove(Entity.RemovalReason.DISCARDED);
+        for(var passenger: graveEntity.getPassengers()){
+            if (passenger.getTags().contains(GRAVE_ENTITY_TAG)){
+                passenger.remove(Entity.RemovalReason.DISCARDED);
+            }
+        }
+        graveEntity.remove(Entity.RemovalReason.DISCARDED);
         PlayerGraveData.getServerState(server).remove(graveEntity);
 
         level.playSound(null, player.blockPosition(),
             SoundEvents.SOUL_SAND_BREAK, SoundSource.PLAYERS,
             0.3F, level.random.nextFloat() * 0.1F + 0.9F);
 
-        return InteractionResult.SUCCESS_NO_ITEM_USED;
+        return true;
     }
 
     public static @NotNull ItemStack getGraveItem(ArmorStand graveEntity) {
@@ -622,19 +646,5 @@ public class Graves {
             if(a == i)
                 return true;
         return false;
-    }
-
-    private static void onStartTick(ServerLevel world) {
-        // every 5 ticks
-        if (world.getGameTime() % 5 != 0)
-            return;
-        var radius = world.getServer().getGameRules().getInt(GRAVE_NAME_VISIBLE_RADIUS);
-        for (var armorStand : world.getEntities(EntityTypeTest.forClass(ArmorStand.class),
-            armorStand -> armorStand.getTags().contains(GRAVE_ENTITY_TAG))) {
-            armorStand.setCustomNameVisible(!world
-                .getNearbyPlayers(TargetingConditions.forNonCombat(), armorStand,
-                    new AABB(armorStand.blockPosition()).inflate(radius))
-                .isEmpty());
-        }
     }
 }
