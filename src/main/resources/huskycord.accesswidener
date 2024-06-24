@@ -21,4 +21,3 @@ accessible field net/minecraft/world/entity/Display DATA_TRANSLATION_ID Lnet/min
 accessible method net/minecraft/world/entity/Display$TextDisplay setFlags (B)V
 accessible method net/minecraft/world/entity/Display$TextDisplay getFlags ()B
 accessible method net/minecraft/world/entity/Display$TextDisplay setBackgroundColor (I)V
-accessible method net/minecraft/world/entity/Display$BlockDisplay setBlockState (Lnet/minecraft/world/level/block/state/BlockState;)V
