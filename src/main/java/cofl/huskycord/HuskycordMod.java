@@ -30,8 +30,8 @@ public class HuskycordMod implements ModInitializer {
         Graves.register();
         ServerPause.register();
         Commands.register();
+        BannerPOI.register();
 
-        //BannerPOI.register();
         LOGGER.info("Initialized HuskyCord.");
     }
 }

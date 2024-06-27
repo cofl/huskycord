@@ -1,5 +1,6 @@
 package cofl.huskycord.datagen;
 
+import cofl.huskycord.BannerPOI;
 import cofl.huskycord.HuskycordMod;
 import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricTagProvider;
