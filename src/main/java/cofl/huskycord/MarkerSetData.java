@@ -1,16 +1,21 @@
 package cofl.huskycord;
 
+import de.bluecolored.bluemap.api.BlueMapMap;
 import de.bluecolored.bluemap.api.markers.MarkerSet;
 import de.bluecolored.bluemap.api.markers.POIMarker;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.entity.BannerBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.saveddata.SavedData;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Objects;
 
 import static cofl.huskycord.HuskycordMod.LOGGER;
@@ -24,14 +29,17 @@ public final class MarkerSetData extends SavedData {
     );
     public static final String DEFAULT_LABEL = "Points of Interest";
 
-    private MarkerSet markerSet = null;
+    private final MarkerSet markerSet;
+    private final HashMap<DyeColor, String> assets;
 
     public MarkerSetData(){
         this.markerSet = new MarkerSet(DEFAULT_LABEL);
+        this.assets = new HashMap<>();
     }
 
-    public MarkerSetData(MarkerSet markerSet) {
+    public MarkerSetData(MarkerSet markerSet, HashMap<DyeColor, String> assets) {
         this.markerSet = markerSet;
+        this.assets = assets;
     }
     public MarkerSet markerSet() { return markerSet; }
 
@@ -53,12 +61,13 @@ public final class MarkerSetData extends SavedData {
             : banner.getBlockState().getBlock().getName().getString();
         if(name.isBlank())
             return;
-
         var position = banner.getBlockPos().getCenter();
-        var marker = POIMarker.builder()
+        var builder = POIMarker.builder()
             .label(name)
-            .position(position.x(), position.y(), position.z())
-            .build();
+            .position(position.x(), position.y(), position.z());
+        if (assets.containsKey(banner.getBaseColor()))
+            builder = builder.icon(assets.get(banner.getBaseColor()), 0, 0);
+        var marker = builder.build();
         this.markerSet.put(id(banner), marker);
         this.setDirty(true);
         LOGGER.info("Added marker {} -- {}", id(banner), name);
@@ -104,12 +113,18 @@ public final class MarkerSetData extends SavedData {
                 tag.putInt("anchor_x", anchor.getX());
                 tag.putInt("anchor_y", anchor.getY());
                 tag.putString("icon_address", poi.getIconAddress());
-                tag.putString("classes", String.join(" ", poi.getStyleClasses()));
+                tag.putString("classes", String.join("\0", poi.getStyleClasses()));
 
                 markers.put(entry.getKey(), tag);
             }
         }
         set.put("markers", markers);
+
+        var assets = new CompoundTag();
+        for (var entry : this.assets.entrySet()){
+            assets.putString(entry.getKey().getName(), entry.getValue());
+        }
+        set.put("assets", assets);
 
         return set;
     }
@@ -142,12 +157,22 @@ public final class MarkerSetData extends SavedData {
                     markerTag.getString("icon_address"),
                     markerTag.getInt("anchor_x"),
                     markerTag.getInt("anchor_y"))
-                .styleClasses(markerTag.getString("classes").split(" "))
+                .styleClasses(Arrays.stream(markerTag.getString("classes").split("\0"))
+                    .filter(s -> !s.isBlank())
+                    .toList()
+                    .toArray(new String[0]))
                 .build();
             markerSet.put(id, marker);
         }
 
-        return new MarkerSetData(markerSet);
+        var assets = new HashMap<DyeColor, String>();
+        var assetTag = tag.getCompound("assets");
+        for (var color: DyeColor.values()){
+            var path = assetTag.getString(color.getName());
+            assets.put(color, path.isEmpty() ? null : path);
+        }
+
+        return new MarkerSetData(markerSet, assets);
     }
 
     public boolean toggle(BannerBlockEntity banner) {
@@ -157,6 +182,32 @@ public final class MarkerSetData extends SavedData {
         } else {
             add(banner);
             return true;
+        }
+    }
+
+    public void importAssets(BlueMapMap map){
+        var storage = map.getAssetStorage();
+        for(var color: DyeColor.values()){
+            var icon = color.getName() + ".png";
+            try {
+                if(!storage.assetExists(icon)){
+                    try(var stream = storage.writeAsset(icon)){
+                        try(var read = HuskycordMod.class.getResourceAsStream("/assets/huskycord/icons/banners/" + icon)){
+                            if(null != read){
+                                stream.write(read.readAllBytes());
+                            }
+                        }
+                    }
+                }
+
+                var path = storage.getAssetUrl(icon);
+                if (!path.equals(assets.getOrDefault(color, ""))){
+                    assets.put(color, path);
+                    this.setDirty(true);
+                }
+            } catch (IOException e){
+                LOGGER.error("Loading icon {} failed.", icon, e);
+            }
         }
     }
 

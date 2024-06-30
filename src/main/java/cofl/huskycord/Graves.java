@@ -1,6 +1,7 @@
 package cofl.huskycord;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.gamerule.v1.GameRuleFactory;
 import net.fabricmc.fabric.api.gamerule.v1.GameRuleRegistry;
@@ -21,13 +22,11 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Display;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -44,8 +43,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
 import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -143,6 +141,7 @@ public class Graves {
         }));
 
         UseEntityCallback.EVENT.register(Graves::onEntityInteract);
+        UseBlockCallback.EVENT.register(Graves::onBlockInteract);
     }
 
     public static void onDeath(ServerPlayer player){
@@ -309,7 +308,9 @@ public class Graves {
             var found = floatPosition(level, position, rules);
             if (found != null)
                 return found;
-        } else if(isDangerous(level, position)){
+        }
+
+        if(isDangerous(level, position)){
             var found = tryEscapeDanger(level, position, rules);
             if (found != null)
                 return found;
@@ -546,6 +547,27 @@ public class Graves {
         }
 
         return InteractionResult.FAIL;
+    }
+
+    private static InteractionResult onBlockInteract(Player player, Level level, InteractionHand hand, BlockHitResult hitResult) {
+        if (level.isClientSide()
+            || player.isSpectator()
+            || hand == InteractionHand.OFF_HAND
+            || !player.getMainHandItem().isEmpty())
+            return InteractionResult.PASS;
+
+        var pos = player.getEyePosition(1f);
+        var direction = player.getViewVector(1f);
+        var reach = player.entityInteractionRange();
+        var limit = pos.add(direction.multiply(reach, reach, reach));
+
+        var result = ProjectileUtil.getEntityHitResult(level, player, pos, limit, new AABB(pos, limit), EntitySelector.NO_SPECTATORS
+            .and(e -> e != null && e.isPickable() && e instanceof ArmorStand));
+
+        if (result != null && result.getEntity() instanceof ArmorStand grave && tryRestoreGrave(player, level, grave))
+            return InteractionResult.SUCCESS_NO_ITEM_USED;
+
+        return InteractionResult.PASS;
     }
 
     private static boolean tryRestoreGrave(Player player, Level level, ArmorStand graveEntity){

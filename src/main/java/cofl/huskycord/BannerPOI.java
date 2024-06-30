@@ -39,6 +39,7 @@ public class BannerPOI {
                     api.getWorld(level).ifPresent(world -> {
                         for(var map: world.getMaps()){
                             map.getMarkerSets().put(MOD_NAME, set.markerSet());
+                            set.importAssets(map);
                         }
                     });
                 }
@@ -64,7 +65,6 @@ public class BannerPOI {
             return InteractionResult.PASS;
 
         player.swing(hand, true);
-
         var set = MarkerSetData.get(serverLevel);
         if(set.toggle(banner)){
             level.playSound(null, player.blockPosition(),
