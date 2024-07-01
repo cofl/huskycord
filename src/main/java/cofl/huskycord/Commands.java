@@ -68,7 +68,7 @@ public class Commands {
     private static MutableComponent graveCount(int count){
         if (count <= 1)
             return Component.empty();
-        return Component.literal(" (%d more)".formatted(count));
+        return ChatUtil.fmt(" ({0} more)", count - 1);
     }
 
     private static MutableComponent graveDimension(ResourceKey<Level> current, ResourceKey<Level> grave){
@@ -85,11 +85,11 @@ public class Commands {
         var message = switch (graves.size()){
             case 0 -> Component.literal("You have no graves.");
             case 1 -> Component.literal("You have 1 grave:");
-            default -> Component.literal("You have %d graves:".formatted(graves.size()));
+            default -> ChatUtil.fmt("You have {0} graves:", graves.size());
         };
 
         var now = LocalDateTime.now();
-        for (var grave: graves){
+        for (var grave: graves.reversed()){
             message = message.append(Component.literal("\n    ")
                 .append(ChatUtil.asComponent(grave.position().relative(Direction.UP, 1), grave.dimension()))
                 .append(" in ").append(dimensionName(grave.dimension())))
