@@ -38,5 +38,10 @@ public class ItemTagGenerator extends FabricTagProvider.ItemTagProvider {
         getOrCreateTagBuilder(HuskycordMod.RETAIN_IN_CRAFTING).add(
             Items.ELYTRA
         );
+
+        getOrCreateTagBuilder(HuskycordMod.TICKET_ITEM).add(
+            Items.PAPER,
+            Items.AMETHYST_SHARD
+        );
     }
 }

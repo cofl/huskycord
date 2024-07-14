@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "DefaultDispenseItemBehaviorMixin",
+    "DetectorRailBlockMixin",
     "EntityMixin",
     "ItemEntityMixin",
     "MinecraftServerMixin",

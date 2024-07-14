@@ -24,6 +24,9 @@ public class HuskycordMod implements ModInitializer {
     public static final TagKey<Item> RETAIN_IN_CRAFTING = TagKey.create(
         Registries.ITEM,
         ResourceLocation.fromNamespaceAndPath(MOD_NAME, "retain_in_crafting"));
+    public static final TagKey<Item> TICKET_ITEM = TagKey.create(
+        Registries.ITEM,
+        ResourceLocation.fromNamespaceAndPath(MOD_NAME, "ticket"));
 
     @Override
     public void onInitialize() {
